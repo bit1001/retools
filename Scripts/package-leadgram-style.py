@@ -61,7 +61,9 @@ with tempfile.TemporaryDirectory(prefix="retools-selfsigned-reference-") as temp
     run(["codesign", "--verify", "--deep", "--strict", app])
     info = plistlib.loads((app / "Info.plist").read_bytes())
     assert info["CFBundleIdentifier"] == "dev.retools.ios" and info.get("RetoolsPrivateSandbox") is True
-    assert len(list(app.rglob("embedded.mobileprovision"))) == 1
+    # ZSign embeds the placeholder profile in the main app and in each app extension.
+    profiles = list(app.rglob("embedded.mobileprovision"))
+    assert len(profiles) == 1 + len(list(app.rglob("*.appex")))
     assert not list(app.rglob("*.p12")) and not list(app.rglob("*.pem"))
     output = work / destination.name
     with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as archive:
@@ -75,6 +77,6 @@ with tempfile.TemporaryDirectory(prefix="retools-selfsigned-reference-") as temp
 
 digest = hashlib.sha256(destination.read_bytes()).hexdigest()
 Path(str(destination) + ".sha256").write_text(digest + "  " + destination.name + "\n")
-report = {"bundle_id": "dev.retools.ios", "private_sandbox": True, "signature": "self-signed build reference", "certificate_subject": "Retools Reference Build / SELFSIGNED", "profile_count": 1, "personal_signing_material": False, "private_key_files": 0, "final_archive_signatures_verified": True, "direct_ios_installation_authorized": False, "sha256": digest}
+report = {"bundle_id": "dev.retools.ios", "private_sandbox": True, "signature": "self-signed build reference", "certificate_subject": "Retools Reference Build / SELFSIGNED", "profile_count": len(profiles), "personal_signing_material": False, "private_key_files": 0, "final_archive_signatures_verified": True, "direct_ios_installation_authorized": False, "sha256": digest}
 (root / "Artifacts/SandboxPackage.json").write_text(json.dumps(report, indent=2) + "\n")
 print("Created", destination)
