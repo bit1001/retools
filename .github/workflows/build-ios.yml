@@ -1,0 +1,46 @@
+name: Build iOS IPA
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    # arm64 runner is required: the committed xcframeworks ship only iOS arm64 and
+    # arm64-simulator slices, and package-leadgram-style.py hardcodes /opt/homebrew.
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select latest stable Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Install build tools
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+          HOMEBREW_NO_INSTALL_CLEANUP: "1"
+        run: |
+          brew install xcodegen openssl@3
+          xcodegen --version
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+          python3 --version
+
+      - name: Build unsigned IPA
+        run: bash Scripts/build-ipa.sh
+
+      - name: Upload IPA artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: retools-ipa
+          path: |
+            Artifacts/*.ipa
+            Artifacts/*.sha256
+            Artifacts/*.json
+          if-no-files-found: error
