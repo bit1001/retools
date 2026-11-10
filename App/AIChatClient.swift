@@ -15,6 +15,11 @@ struct AISSEDecoder {
     private var limited = false
     private var images: [Int: String] = [:]
     private(set) var ended = false
+    // Synthesized memberwise init is private (private stored properties); expose an internal one.
+    init(provider: AIProvider, maximumEventBytes: Int = 1_000_000) {
+        self.provider = provider
+        self.maximumEventBytes = maximumEventBytes
+    }
     mutating func feed(_ input: String) throws -> [AIStreamEvent] {
         var line = input
         if line.hasPrefix("\u{feff}") { line.removeFirst() }
