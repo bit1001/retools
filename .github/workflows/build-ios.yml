@@ -41,20 +41,18 @@ jobs:
         if: failure()
         run: |
           echo "::error::Xcode $(xcodebuild -version 2>&1 | tr '\n' ' ')| iOS SDK $(xcrun --sdk iphoneos --show-sdk-version 2>&1)"
-          echo "::notice::Installed Xcodes: $(ls -d /Applications/Xcode*.app 2>/dev/null | tr '\n' ' ')"
           {
             echo "## Build failed - diagnostics"
             echo '```'
-            xcodebuild -version 2>&1 || true
-            echo "iOS SDK: $(xcrun --sdk iphoneos --show-sdk-version 2>&1)"
             echo "--- key error lines ---"
-            grep -nE "error:|fatal error:|BUILD FAILED|The following build commands failed|clang: error|ld: error|xcodebuild: error|cannot find|only available|no such module" build-ipa.log | tail -n 60 || true
-            echo "--- last 40 lines ---"
-            tail -n 40 build-ipa.log || true
+            grep -nE "error:|fatal error:|BUILD FAILED|The following build commands failed|Traceback|Error|Exception|assert|CalledProcessError|RuntimeError|No such file|not found|Permission denied" build-ipa.log | tail -n 60 || true
+            echo "--- last 50 lines ---"
+            tail -n 50 build-ipa.log || true
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
-          grep -E "error:|BUILD FAILED|The following build commands failed|no such module|only available" build-ipa.log | tail -n 20 | while IFS= read -r line; do
-            printf '::error::%s\n' "$line"
+          tail -n 30 build-ipa.log | while IFS= read -r line; do
+            esc=${line//%/%25}
+            printf '::error::%s\n' "$esc"
           done
 
       - name: Upload IPA artifacts
