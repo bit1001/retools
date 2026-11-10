@@ -14,7 +14,7 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Select latest stable Xcode
         uses: maxim-lobanov/setup-xcode@v1
@@ -33,9 +33,32 @@ jobs:
           python3 --version
 
       - name: Build unsigned IPA
-        run: bash Scripts/build-ipa.sh
+        run: |
+          set -o pipefail
+          bash Scripts/build-ipa.sh 2>&1 | tee build-ipa.log
+
+      - name: Surface build errors
+        if: failure()
+        run: |
+          echo "::error::Xcode $(xcodebuild -version 2>&1 | tr '\n' ' ')| iOS SDK $(xcrun --sdk iphoneos --show-sdk-version 2>&1)"
+          echo "::notice::Installed Xcodes: $(ls -d /Applications/Xcode*.app 2>/dev/null | tr '\n' ' ')"
+          {
+            echo "## Build failed - diagnostics"
+            echo '```'
+            xcodebuild -version 2>&1 || true
+            echo "iOS SDK: $(xcrun --sdk iphoneos --show-sdk-version 2>&1)"
+            echo "--- key error lines ---"
+            grep -nE "error:|fatal error:|BUILD FAILED|The following build commands failed|clang: error|ld: error|xcodebuild: error|cannot find|only available|no such module" build-ipa.log | tail -n 60 || true
+            echo "--- last 40 lines ---"
+            tail -n 40 build-ipa.log || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          grep -E "error:|BUILD FAILED|The following build commands failed|no such module|only available" build-ipa.log | tail -n 20 | while IFS= read -r line; do
+            printf '::error::%s\n' "$line"
+          done
 
       - name: Upload IPA artifacts
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: retools-ipa
