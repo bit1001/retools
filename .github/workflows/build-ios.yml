@@ -40,20 +40,20 @@ jobs:
       - name: Surface build errors
         if: failure()
         run: |
-          echo "::error::Xcode $(xcodebuild -version 2>&1 | tr '\n' ' ')| iOS SDK $(xcrun --sdk iphoneos --show-sdk-version 2>&1)"
+          L=build-ipa.log
+          STATS="lines=$(wc -l < "$L") succeeded=$(grep -c 'BUILD SUCCEEDED' "$L") failed=$(grep -c 'BUILD FAILED' "$L") errcolon=$(grep -c ': error: ' "$L") traceback=$(grep -c 'Traceback' "$L")"
+          echo "::error::STATS $STATS | Xcode $(xcodebuild -version 2>&1 | tr '\n' ' ')"
+          ERRS=$(grep -nE "BUILD FAILED|following build commands failed|Traceback|AssertionError|CalledProcessError|RuntimeError|FileNotFoundError|fatal error:|clang: error|ld: error|xcodebuild: error|: error: |Segmentation fault|Abort trap|command not found|No such file or directory|Permission denied" "$L" | tail -n 25 | tr '\n' '|')
+          echo "::error::ERRS ${ERRS//%/%25}"
+          TAIL=$(tail -n 15 "$L" | tr '\n' '|')
+          echo "::error::TAIL ${TAIL//%/%25}"
           {
-            echo "## Build failed - diagnostics"
+            echo "## Build failed"
+            echo "$STATS"
             echo '```'
-            echo "--- key error lines ---"
-            grep -nE "error:|fatal error:|BUILD FAILED|The following build commands failed|Traceback|Error|Exception|assert|CalledProcessError|RuntimeError|No such file|not found|Permission denied" build-ipa.log | tail -n 60 || true
-            echo "--- last 50 lines ---"
-            tail -n 50 build-ipa.log || true
+            tail -n 60 "$L" || true
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
-          tail -n 30 build-ipa.log | while IFS= read -r line; do
-            esc=${line//%/%25}
-            printf '::error::%s\n' "$esc"
-          done
 
       - name: Upload IPA artifacts
         if: success()
